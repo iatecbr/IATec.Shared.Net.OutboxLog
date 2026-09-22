@@ -1,46 +1,46 @@
 # IATec.Shared.Net.OutboxLog
 
-Entrega confiable de logs para .NET usando el patrón **Outbox**. Captura logs (opcionalmente vía
-`Microsoft.Extensions.Logging`), los persiste en un store local (en memoria o en cualquier base de datos relacional soportada por EF Core) y los
-despacha de forma asíncrona a un Log Bank centralizado con reintentos, deduplicación y
+Reliable log delivery for .NET using the **Outbox** pattern. It captures logs (optionally via
+`Microsoft.Extensions.Logging`), persists them in a local store (in-memory or any relational database supported by EF Core) and
+dispatches them asynchronously to a centralized Log Bank with retries, deduplication and a
 **circuit breaker**.
 
 - Target: **.NET 10** (`net10.0`)
-- Cliente HTTP resiliente: **IATec.Shared.HttpClient** (Polly: retry, circuit breaker, timeout)
+- Resilient HTTP client: **IATec.Shared.HttpClient** (Polly: retry, circuit breaker, timeout)
 
 ---
 
-## Índice
+## Table of contents
 
-- [Instalación](#instalación)
-- [Inicio rápido](#inicio-rápido)
-- [Store en memoria vs base de datos relacional](#store-en-memoria-vs-base-de-datos-relacional)
-- [Formas de enviar logs](#formas-de-enviar-logs)
-- [Integración con ILogger (opcional)](#integración-con-ilogger-opcional)
-- [Enriquecimiento del payload (owner / action / userId)](#enriquecimiento-del-payload-owner--action--userid)
-- [Referencia de configuración](#referencia-de-configuración)
-- [Circuit breaker y resiliencia](#circuit-breaker-y-resiliencia)
-- [Cómo funcionan PollInterval, BatchSize y RetryLimit](#cómo-funcionan-pollinterval-batchsize-y-retrylimit)
-- [Atomicidad transaccional (store SQL)](#atomicidad-transaccional-store-sql)
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [In-memory store vs relational database](#in-memory-store-vs-relational-database)
+- [Ways to send logs](#ways-to-send-logs)
+- [ILogger integration (optional)](#ilogger-integration-optional)
+- [Payload enrichment (owner / action / userId)](#payload-enrichment-owner--action--userid)
+- [Configuration reference](#configuration-reference)
+- [Circuit breaker and resilience](#circuit-breaker-and-resilience)
+- [How PollInterval, BatchSize and RetryLimit work](#how-pollinterval-batchsize-and-retrylimit-work)
+- [Transactional atomicity (SQL store)](#transactional-atomicity-sql-store)
 
 ---
 
-## Instalación
+## Installation
 
-La librería referencia el paquete `IATec.Shared.HttpClient` del feed `IATec.Community`. El
-repositorio ya incluye un `nuget.config` con los feeds necesarios (`nuget.org` + `IATec.Community`).
+The library references the `IATec.Shared.HttpClient` package from the `IATec.Community` feed. The
+repository already includes a `nuget.config` with the required feeds (`nuget.org` + `IATec.Community`).
 
 ```xml
 <PackageReference Include="IATec.Shared.Net.OutboxLog" Version="0.1.0" />
 ```
 
-El proyecto consumidor debe apuntar a **net10.0**.
+The consuming project must target **net10.0**.
 
 ---
 
-## Inicio rápido
+## Quick start
 
-Registro mínimo con store en memoria (sin dependencias externas):
+Minimal registration with the in-memory store (no external dependencies):
 
 ```csharp
 using IATec.Shared.Net.OutboxLog;
@@ -54,8 +54,8 @@ builder.Services.AddLogsOutbox(options =>
 {
     options.StoreType       = OutboxStoreType.InMemory;
     options.LogBankEndpoint = "https://api-is-logs-dev.sdasystems.org/v1/log";
-    options.ContainerKey    = "mi-app";
-    options.Source          = "mi-servicio";
+    options.ContainerKey    = "my-app";
+    options.Source          = "my-service";
 });
 
 var app = builder.Build();
@@ -63,35 +63,35 @@ app.MapControllers();
 app.Run();
 ```
 
-Esto registra: el store, el `DispatchWorker` (background service que entrega en segundo plano) y el
-cliente HTTP resiliente. La captura automática vía `ILogger` es **opt-in**: por defecto NO se
-registra el `ILoggerProvider` (ver [Integración con ILogger](#integración-con-ilogger-opcional)).
+This registers: the store, the `DispatchWorker` (background service that delivers in the background) and the
+resilient HTTP client. Automatic capture via `ILogger` is **opt-in**: by default the `ILoggerProvider` is NOT
+registered (see [ILogger integration](#ilogger-integration-optional)).
 
 ---
 
-## Store en memoria vs base de datos relacional
+## In-memory store vs relational database
 
-| Store | Durable | Requiere | Uso |
+| Store | Durable | Requires | Use |
 |---|---|---|---|
-| `InMemory` | No (se pierde al reiniciar) | nada | pruebas, cargas efímeras |
-| `Sql` | Sí | EF Core + un provider relacional + connection string | producción, atomicidad transaccional |
+| `InMemory` | No (lost on restart) | nothing | tests, ephemeral workloads |
+| `Sql` | Yes | EF Core + a relational provider + connection string | production, transactional atomicity |
 
-> **Agnóstico de proveedor.** El store relacional funciona con **cualquier base de datos soportada
-> por EF Core**. La librería solo depende de `Microsoft.EntityFrameworkCore(.Relational)`; el
-> provider concreto lo aporta tu aplicación:
+> **Provider-agnostic.** The relational store works with **any database supported by EF Core**.
+> The library only depends on `Microsoft.EntityFrameworkCore(.Relational)`; the concrete provider is
+> supplied by your application:
 >
-> | Base de datos | Paquete del provider | Uso |
+> | Database | Provider package | Use |
 > |---|---|---|
 > | SQL Server | `Microsoft.EntityFrameworkCore.SqlServer` | `UseSqlServer(cs)` |
 > | PostgreSQL | `Npgsql.EntityFrameworkCore.PostgreSQL` | `UseNpgsql(cs)` |
 > | MySQL / MariaDB | `Pomelo.EntityFrameworkCore.MySql` | `UseMySql(cs, ...)` |
 > | SQLite | `Microsoft.EntityFrameworkCore.Sqlite` | `UseSqlite(cs)` |
 
-### Configuración con base de datos relacional
+### Configuration with a relational database
 
-El store relacional necesita que registres un `IDbContextFactory<TDbContext>` y un `TDbContext`
-scoped, y que uses el overload genérico `AddLogsOutbox<TDbContext>`. El ejemplo usa SQL Server;
-cambia `UseSqlServer` por el `Use...` de tu provider:
+The relational store requires you to register an `IDbContextFactory<TDbContext>` and a scoped
+`TDbContext`, and to use the generic `AddLogsOutbox<TDbContext>` overload. The example uses SQL Server;
+replace `UseSqlServer` with the `Use...` for your provider:
 
 ```csharp
 using IATec.Shared.Net.OutboxLog;
@@ -100,7 +100,7 @@ using Microsoft.EntityFrameworkCore;
 
 var cs = builder.Configuration.GetConnectionString("Default")!;
 
-// SQL Server (o UseNpgsql / UseMySql / UseSqlite segun tu base)
+// SQL Server (or UseNpgsql / UseMySql / UseSqlite depending on your database)
 builder.Services.AddDbContextFactory<AppDbContext>(o => o.UseSqlServer(cs));
 builder.Services.AddScoped(sp =>
     new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(cs).Options));
@@ -109,12 +109,12 @@ builder.Services.AddLogsOutbox<AppDbContext>(options =>
 {
     options.StoreType       = OutboxStoreType.Sql;
     options.LogBankEndpoint = "https://api-is-logs-dev.sdasystems.org/v1/log";
-    options.ContainerKey    = "mi-app";
-    options.Source          = "mi-servicio";
+    options.ContainerKey    = "my-app";
+    options.Source          = "my-service";
 });
 ```
 
-El `AppDbContext` debe aplicar la configuración de la entidad `OutboxEntry`:
+The `AppDbContext` must apply the configuration for the `OutboxEntry` entity:
 
 ```csharp
 using IATec.Shared.Net.OutboxLog;
@@ -132,26 +132,26 @@ public sealed class AppDbContext : DbContext
 }
 ```
 
-Al arrancar, un hosted service crea **silenciosamente la tabla `LogsOutboxEntries`** si no existe,
-usando EF Core (genera el DDL correcto para tu provider). Es idempotente y **crea solo la tabla del
-outbox**: no toca tus demás tablas ni tus migraciones. Si la base no está disponible, **no lanza**:
-registra el error y el arranque continúa; el store queda marcado como no disponible y `WriteAsync`
-devuelve `Failed` con `"outbox table unavailable"`.
+At startup, a hosted service **silently creates the `LogsOutboxEntries` table** if it does not exist,
+using EF Core (it generates the correct DDL for your provider). It is idempotent and **creates only the
+outbox table**: it does not touch your other tables or your migrations. If the database is not available,
+it **does not throw**: it logs the error and startup continues; the store is marked as unavailable and
+`WriteAsync` returns `Failed` with `"outbox table unavailable"`.
 
-### Integración en una app con un `DbContext` ya existente
+### Integration into an app with an existing `DbContext`
 
-Puedes reutilizar tu propio `DbContext` de negocio (el que ya tiene tus tablas y migraciones)
-conservando la **atomicidad transaccional** (el log se confirma o revierte junto con tus datos).
-Hay dos formas de mapear la entidad del outbox:
+You can reuse your own business `DbContext` (the one that already has your tables and migrations)
+while preserving **transactional atomicity** (the log commits or rolls back together with your data).
+There are two ways to map the outbox entity:
 
-**Forma A (recomendada, sin tocar tu `OnModelCreating`).** Llama a `AddLogsOutboxModel()` al
-construir las opciones del context, después del provider. Un `IModelCustomizer` añade `OutboxEntry`
-al modelo de forma transparente:
+**Option A (recommended, without touching your `OnModelCreating`).** Call `AddLogsOutboxModel()` when
+building the context options, after the provider. An `IModelCustomizer` transparently adds `OutboxEntry`
+to the model:
 
 ```csharp
 builder.Services.AddDbContextFactory<AppDbContext>(o => o
     .UseSqlServer(cs)
-    .AddLogsOutboxModel());          // <- inyecta OutboxEntry sin tocar tu DbContext
+    .AddLogsOutboxModel());          // <- injects OutboxEntry without touching your DbContext
 
 builder.Services.AddScoped(sp =>
     new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
@@ -166,18 +166,18 @@ builder.Services.AddLogsOutbox<AppDbContext>(options =>
 });
 ```
 
-Tu `AppDbContext` de negocio **no necesita mencionar el outbox** para nada:
+Your business `AppDbContext` **does not need to mention the outbox** at all:
 
 ```csharp
 public sealed class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
-    public DbSet<Pedido> Pedidos => Set<Pedido>();   // solo tus tablas de negocio
+    public DbSet<Order> Orders => Set<Order>();   // only your business tables
 }
 ```
 
-**Forma B (explícita).** Si prefieres mapearlo tú mismo, aplica la configuración en tu
-`OnModelCreating` y no uses `AddLogsOutboxModel()`:
+**Option B (explicit).** If you prefer to map it yourself, apply the configuration in your
+`OnModelCreating` and do not use `AddLogsOutboxModel()`:
 
 ```csharp
 protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -187,53 +187,53 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 }
 ```
 
-En cualquiera de las dos formas:
-- Registra un `IDbContextFactory<AppDbContext>` (`AddDbContextFactory<AppDbContext>(...)`); el worker
-  lo usa para sus lecturas/actualizaciones en un context dedicado.
-- El initializer detecta si `LogsOutboxEntries` ya existe y, si no, la crea al arrancar **sin tocar
-  el resto de tu esquema**. Si gestionas el esquema con migraciones y ya incluyes esa tabla, el
-  initializer la detecta como existente y no hace nada.
+In either option:
+- Register an `IDbContextFactory<AppDbContext>` (`AddDbContextFactory<AppDbContext>(...)`); the worker
+  uses it for its reads/updates in a dedicated context.
+- The initializer detects whether `LogsOutboxEntries` already exists and, if not, creates it at startup
+  **without touching the rest of your schema**. If you manage the schema with migrations and already
+  include that table, the initializer detects it as existing and does nothing.
 
 ---
 
-## Formas de enviar logs
+## Ways to send logs
 
-Hay tres formas de que un log llegue al Log Bank:
+There are three ways for a log to reach the Log Bank:
 
-### 1. Vía `ILogger` (captura automática)
+### 1. Via `ILogger` (automatic capture)
 
-Con `EnableLoggerProvider = true` (opt-in; por defecto es `false`), cualquier log del pipeline se captura:
+With `EnableLoggerProvider = true` (opt-in; defaults to `false`), any log in the pipeline is captured:
 
 ```csharp
-public class PedidosController(ILogger<PedidosController> logger)
+public class OrdersController(ILogger<OrdersController> logger)
 {
-    public IActionResult Crear()
+    public IActionResult Create()
     {
-        logger.LogInformation("Pedido creado");
+        logger.LogInformation("Order created");
         return Ok();
     }
 }
 ```
 
-### 2. Vía `IOutboxStore` (explícito, resiliente)
+### 2. Via `IOutboxStore` (explicit, resilient)
 
-Persiste el log en el outbox; el worker lo entrega en segundo plano con reintentos y deduplicación:
+Persists the log in the outbox; the worker delivers it in the background with retries and deduplication:
 
 ```csharp
 using IATec.Shared.Net.OutboxLog;
 
-public sealed class MiServicio(IOutboxStore outbox)
+public sealed class MyService(IOutboxStore outbox)
 {
-    public async Task RegistrarAsync(CancellationToken ct)
+    public async Task RegisterAsync(CancellationToken ct)
     {
         var payload = new LogPayload
         {
-            ContainerKey = "mi-app",
-            Source       = "mi-servicio",
-            Owner        = "ventas",
-            Action       = "crear-pedido",
+            ContainerKey = "my-app",
+            Source       = "my-service",
+            Owner        = "sales",
+            Action       = "create-order",
             UserId       = "user-123",
-            Content      = "Mensaje construido manualmente",
+            Content      = "Manually built message",
         };
 
         WriteResult result = await outbox.WriteAsync(payload, ct);
@@ -242,46 +242,46 @@ public sealed class MiServicio(IOutboxStore outbox)
 }
 ```
 
-### 3. Vía `ILogBankClient` (envío directo e inmediato)
+### 3. Via `ILogBankClient` (direct, immediate send)
 
-Hace el POST al Log Bank en el momento, sin persistir ni reintentar (aplica igual el circuit
-breaker del cliente resiliente):
+Performs the POST to the Log Bank right away, without persisting or retrying (the resilient client's
+circuit breaker still applies):
 
 ```csharp
 using IATec.Shared.Net.OutboxLog;
 using IATec.Shared.Net.OutboxLog.Dispatch;
 
-public sealed class MiServicio(ILogBankClient client)
+public sealed class MyService(ILogBankClient client)
 {
-    public async Task EnviarAsync(CancellationToken ct)
+    public async Task SendAsync(CancellationToken ct)
     {
-        var payload = new LogPayload { /* ... */ Content = "Envío directo" };
+        var payload = new LogPayload { /* ... */ Content = "Direct send" };
         DeliveryResult result = await client.SendAsync(payload, ct);
         // result.Outcome: Accepted | Rejected | TimedOut | Unreachable
     }
 }
 ```
 
-| Necesitas... | Usa |
+| You need... | Use |
 |---|---|
-| Captura transparente de todo el logging | **1 — `ILogger`** |
-| No perder logs si el Log Bank cae; reintentos; deduplicación | **2 — `IOutboxStore`** |
-| Enviar ahora y saber al instante si la API aceptó | **3 — `ILogBankClient`** |
+| Transparent capture of all logging | **1 — `ILogger`** |
+| Not losing logs if the Log Bank goes down; retries; deduplication | **2 — `IOutboxStore`** |
+| Send now and know instantly whether the API accepted | **3 — `ILogBankClient`** |
 
-> En modo SQL, `IOutboxStore` es *scoped*: inyéctalo dentro de un scope (un controller o servicio
-> scoped). `ILogBankClient` no tiene esa restricción.
+> In SQL mode, `IOutboxStore` is *scoped*: inject it inside a scope (a controller or a scoped
+> service). `ILogBankClient` has no such restriction.
 
 ---
 
-## Integración con ILogger (opcional)
+## ILogger integration (optional)
 
-La captura automática vía `ILogger` es **opt-in y está desactivada por defecto**
-(`EnableLoggerProvider = false`). Por defecto la librería NO registra el `ILoggerProvider`: tus
-`logger.LogInformation(...)` no se capturan y solo llegan al Log Bank los logs que envíes
-explícitamente por `IOutboxStore` o `ILogBankClient`. El store, el worker y el cliente HTTP se
-registran igual.
+Automatic capture via `ILogger` is **opt-in and disabled by default**
+(`EnableLoggerProvider = false`). By default the library does NOT register the `ILoggerProvider`: your
+`logger.LogInformation(...)` calls are not captured and only the logs you send explicitly through
+`IOutboxStore` or `ILogBankClient` reach the Log Bank. The store, the worker and the HTTP client are
+registered regardless.
 
-Para **activar** la captura automática de todo el pipeline de logging, ponla en `true`:
+To **enable** automatic capture of the whole logging pipeline, set it to `true`:
 
 ```csharp
 builder.Services.AddLogsOutbox<AppDbContext>(options =>
@@ -289,63 +289,63 @@ builder.Services.AddLogsOutbox<AppDbContext>(options =>
     options.StoreType = OutboxStoreType.Sql;
     options.LogBankEndpoint = "https://api-is-logs-dev.sdasystems.org/v1/log";
 
-    // Opt-in: habilita la captura por ILogger (por defecto false).
+    // Opt-in: enables capture via ILogger (defaults to false).
     options.EnableLoggerProvider = true;
 });
 ```
 
-> Cuando la captura por `ILogger` está activa y usas el store SQL, conviene evitar la recursión de
-> logging (EF Core y el HttpClient también loguean). Filtra por el alias del provider `LogsOutbox`
-> en `appsettings.json`:
+> When `ILogger` capture is active and you use the SQL store, it is advisable to avoid logging
+> recursion (EF Core and the HttpClient also log). Filter by the `LogsOutbox` provider alias in
+> `appsettings.json`:
 >
 > ```json
 > {
 >   "Logging": {
 >     "LogLevel": { "Microsoft.EntityFrameworkCore": "Warning" },
 >     "LogsOutbox": {
->       "LogLevel": { "Default": "None", "MiApp": "Information" }
+>       "LogLevel": { "Default": "None", "MyApp": "Information" }
 >     }
 >   }
 > }
 > ```
-> Así solo las categorías de tu aplicación (`MiApp`) se envían al outbox.
+> This way only your application's categories (`MyApp`) are sent to the outbox.
 
 ---
 
-## Enriquecimiento del payload (owner / action / userId)
+## Payload enrichment (owner / action / userId)
 
-El payload tiene los campos `containerKey`, `source`, `owner`, `action`, `userId`, `content`. Para
-rellenarlos por log usa **scopes** con esas claves exactas (case-sensitive):
+The payload has the fields `containerKey`, `source`, `owner`, `action`, `userId`, `content`. To
+populate them per log, use **scopes** with those exact keys (case-sensitive):
 
 ```csharp
 using (logger.BeginScope(new Dictionary<string, object>
 {
-    ["owner"]  = "ventas",
-    ["action"] = "crear-pedido",
+    ["owner"]  = "sales",
+    ["action"] = "create-order",
     ["userId"] = "user-123",
 }))
 {
-    logger.LogInformation("Pedido creado");
+    logger.LogInformation("Order created");
 }
 ```
 
-### Prioridad de mapeo (y fallbacks)
+### Mapping priority (and fallbacks)
 
-El Log Bank exige que `owner`, `action` y `userId` no vayan vacíos. Si no hay scope, la librería
-aplica fallbacks con sentido:
+The Log Bank requires that `owner`, `action` and `userId` are not empty. If there is no scope, the
+library applies sensible fallbacks:
 
-| Campo | Prioridad |
+| Field | Priority |
 |---|---|
 | `containerKey` | scope `containerKey` → `options.ContainerKey` → `""` |
-| `source` | scope `source` → `options.Source` → categoría del logger → `""` |
-| `owner` | scope `owner` → **categoría del logger** (la clase de contexto) → `""` |
-| `action` | scope `action` → `EventId.Name` → **nivel de log** (`Information`, `Warning`, ...) → `""` |
+| `source` | scope `source` → `options.Source` → logger category → `""` |
+| `owner` | scope `owner` → **logger category** (the context class) → `""` |
+| `action` | scope `action` → `EventId.Name` → **log level** (`Information`, `Warning`, ...) → `""` |
 | `userId` | scope `userId` → **`options.UserIdProvider`** → `""` |
-| `content` | mensaje formateado (+ detalle de excepción), truncado a 8192 chars |
+| `content` | formatted message (+ exception detail), truncated to 8192 chars |
 
-### `userId` desde el usuario autenticado
+### `userId` from the authenticated user
 
-`UserIdProvider` recibe el `IServiceProvider` de la app, así que puede leer el usuario autenticado:
+`UserIdProvider` receives the app's `IServiceProvider`, so it can read the authenticated user:
 
 ```csharp
 builder.Services.AddHttpContextAccessor();
@@ -356,67 +356,66 @@ builder.Services.AddLogsOutbox<AppDbContext>(options =>
     {
         var user = sp.GetService<IHttpContextAccessor>()?.HttpContext?.User;
         var name = user?.Identity?.IsAuthenticated == true ? user.Identity.Name : null;
-        return string.IsNullOrEmpty(name) ? "N/A" : name; // "N/A" si es anónimo
+        return string.IsNullOrEmpty(name) ? "N/A" : name; // "N/A" if anonymous
     };
 });
 ```
 
 ---
 
-## Referencia de configuración
+## Configuration reference
 
 `LogsOutboxOptions`:
 
-| Opción | Default | Rango | Descripción |
+| Option | Default | Range | Description |
 |---|---|---|---|
-| `LogBankEndpoint` | `https://api-is-logs-dev.sdasystems.org/v1/log` | URL http/https absoluta | Destino del POST |
-| `StoreType` | `InMemory` | `InMemory` / `Sql` | Store de persistencia |
-| `EnableLoggerProvider` | `false` | bool | Registra (o no) el `ILoggerProvider`. Opt-in |
-| `PollInterval` | `5s` | 1s–300s | Cadencia del worker |
-| `BatchSize` | `100` | 1–1000 | Entradas por ciclo |
-| `RetryLimit` | `3` | 1–10 | Intentos por entrada antes de `Failed` |
-| `RetryBackoff` | `30s` | 1s–3600s | Backoff base del worker |
-| `RequestTimeout` | `10s` | 1s–60s | Timeout por request HTTP |
-| `UseCircuitBreaker` | `true` | bool | Activa el circuit breaker |
-| `CircuitBreakerFailuresAllowedBeforeBreaking` | `4` | 1–100 | Fallos consecutivos antes de abrir |
-| `CircuitBreakerDuration` | `30s` | 1s–3600s | Cuánto permanece abierto |
-| `UseHttpRetry` | `false` | bool | Reintentos rápidos a nivel HTTP (aparte del worker) |
-| `HttpRetryCount` | `0` | 0–10 | Nº de reintentos HTTP si `UseHttpRetry` |
-| `HttpRetryDelay` | `1s` | 0s–60s | Retardo entre reintentos HTTP |
-| `ContainerKey` | `null` | — | Valor estático del payload |
-| `Source` | `null` | — | Valor estático del payload |
-| `UserIdProvider` | `null` | — | Delegado para resolver `userId` |
+| `LogBankEndpoint` | `https://api-is-logs-dev.sdasystems.org/v1/log` | absolute http/https URL | POST destination |
+| `StoreType` | `InMemory` | `InMemory` / `Sql` | Persistence store |
+| `EnableLoggerProvider` | `false` | bool | Registers (or not) the `ILoggerProvider`. Opt-in |
+| `PollInterval` | `5s` | 1s–300s | Worker cadence |
+| `BatchSize` | `100` | 1–1000 | Entries per cycle |
+| `RetryLimit` | `3` | 1–10 | Attempts per entry before `Failed` |
+| `RetryBackoff` | `30s` | 1s–3600s | Worker base backoff |
+| `RequestTimeout` | `10s` | 1s–60s | Timeout per HTTP request |
+| `UseCircuitBreaker` | `true` | bool | Enables the circuit breaker |
+| `CircuitBreakerFailuresAllowedBeforeBreaking` | `4` | 1–100 | Consecutive failures before opening |
+| `CircuitBreakerDuration` | `30s` | 1s–3600s | How long it stays open |
+| `UseHttpRetry` | `false` | bool | Fast HTTP-level retries (separate from the worker) |
+| `HttpRetryCount` | `0` | 0–10 | Number of HTTP retries if `UseHttpRetry` |
+| `HttpRetryDelay` | `1s` | 0s–60s | Delay between HTTP retries |
+| `ContainerKey` | `null` | — | Static payload value |
+| `Source` | `null` | — | Static payload value |
+| `UserIdProvider` | `null` | — | Delegate to resolve `userId` |
 
-Notas:
-- La configuración se valida en el registro. Un valor inválido lanza
-  `LogsOutboxConfigurationException` con el nombre del campo, y deja el contenedor sin modificar.
-- Con `StoreType.Sql` debes usar el overload `AddLogsOutbox<TDbContext>`. El overload no genérico
-  con `StoreType.Sql` se rechaza con `FieldName = "DbContext"`.
+Notes:
+- Configuration is validated at registration. An invalid value throws
+  `LogsOutboxConfigurationException` with the field name, and leaves the container unchanged.
+- With `StoreType.Sql` you must use the `AddLogsOutbox<TDbContext>` overload. The non-generic overload
+  with `StoreType.Sql` is rejected with `FieldName = "DbContext"`.
 
 ---
 
-## Circuit breaker y resiliencia
+## Circuit breaker and resilience
 
-La entrega al Log Bank usa el `IServiceClient` de `IATec.Shared.HttpClient` (Polly). El circuit
-breaker evita el envío masivo cuando el endpoint no está disponible o con dificultades.
+Delivery to the Log Bank uses the `IServiceClient` from `IATec.Shared.HttpClient` (Polly). The circuit
+breaker prevents mass sending when the endpoint is unavailable or struggling.
 
-**Cómo se comporta cuando el Log Bank falla:**
+**How it behaves when the Log Bank fails:**
 
-1. Tras `CircuitBreakerFailuresAllowedBeforeBreaking` fallos consecutivos, el circuito se **abre**.
-2. Con el circuito abierto, el cliente **no golpea el endpoint**: devuelve `Unreachable` de inmediato.
-3. El `DispatchWorker` deja la entrada `Pending` y la reprograma con backoff (hasta `RetryLimit`).
-4. Pasada `CircuitBreakerDuration`, el circuito prueba de nuevo; si funciona, se cierra.
+1. After `CircuitBreakerFailuresAllowedBeforeBreaking` consecutive failures, the circuit **opens**.
+2. With the circuit open, the client **does not hit the endpoint**: it returns `Unreachable` immediately.
+3. The `DispatchWorker` leaves the entry `Pending` and reschedules it with backoff (up to `RetryLimit`).
+4. After `CircuitBreakerDuration`, the circuit tries again; if it works, it closes.
 
-**Dos niveles de resiliencia que se complementan:**
+**Two complementary levels of resilience:**
 
-- **Circuit breaker + `RequestTimeout`** (dentro de un intento): protegen contra endpoint caído/lento.
-- **`RetryLimit` + `RetryBackoff`** (a lo largo del tiempo, en el outbox): reintentos persistentes
-  que sobreviven a reinicios.
+- **Circuit breaker + `RequestTimeout`** (within an attempt): protect against a down/slow endpoint.
+- **`RetryLimit` + `RetryBackoff`** (over time, in the outbox): persistent retries that survive restarts.
 
-`UseHttpRetry` viene en `false` para no duplicar los reintentos del worker. Actívalo solo si además
-quieres reintentos inmediatos a nivel HTTP.
+`UseHttpRetry` defaults to `false` so as not to duplicate the worker's retries. Enable it only if you
+also want immediate HTTP-level retries.
 
-Configuración solo del circuit breaker (el resto en defaults):
+Circuit-breaker-only configuration (the rest at defaults):
 
 ```csharp
 builder.Services.AddLogsOutbox<AppDbContext>(options =>
@@ -430,38 +429,38 @@ builder.Services.AddLogsOutbox<AppDbContext>(options =>
 
 ---
 
-## Cómo funcionan PollInterval, BatchSize y RetryLimit
+## How PollInterval, BatchSize and RetryLimit work
 
-El worker corre un bucle: procesa un lote y luego espera `PollInterval` antes del siguiente ciclo.
+The worker runs a loop: it processes a batch and then waits `PollInterval` before the next cycle.
 
-- **`PollInterval`** — cada cuánto se ejecuta un ciclo (default 5s). Menor = menos latencia pero más
-  carga; mayor = más eficiente pero los logs tardan más en salir.
-- **`BatchSize`** — cuántas entradas procesa por ciclo (default 100), ordenadas de más antigua a más
-  nueva (FIFO por `CreatedAt`). Si hay más pendientes, se procesan en ciclos siguientes.
-- **`RetryLimit`** — intentos de entrega por entrada (default 3). En cada fallo se incrementa el
-  contador y se reprograma con backoff exponencial; al alcanzar el límite, la entrada se marca
-  `Failed` y deja de reintentarse.
+- **`PollInterval`** — how often a cycle runs (default 5s). Lower = less latency but more load;
+  higher = more efficient but logs take longer to go out.
+- **`BatchSize`** — how many entries it processes per cycle (default 100), ordered from oldest to
+  newest (FIFO by `CreatedAt`). If there are more pending, they are processed in later cycles.
+- **`RetryLimit`** — delivery attempts per entry (default 3). On each failure the counter is
+  incremented and it is rescheduled with exponential backoff; upon reaching the limit, the entry is
+  marked `Failed` and stops being retried.
 
-Cuando una entrega es `Accepted`, la entrada se **elimina** del store (no queda como tombstone).
-Solo las que agotan reintentos permanecen como `Failed`.
+When a delivery is `Accepted`, the entry is **removed** from the store (no tombstone is left). Only
+those that exhaust their retries remain as `Failed`.
 
 ---
 
-## Atomicidad transaccional (store SQL)
+## Transactional atomicity (SQL store)
 
-Si escribes un log dentro de una transacción abierta en tu `DbContext`, la entrada se enlista en el
-mismo change tracker y se confirma o revierte junto con tus datos de negocio:
+If you write a log inside an open transaction on your `DbContext`, the entry is enlisted in the same
+change tracker and commits or rolls back together with your business data:
 
 ```csharp
 await using var tx = await db.Database.BeginTransactionAsync();
 
-db.Pedidos.Add(nuevoPedido);
-await outbox.WriteAsync(payload); // se enlista, aún no visible al worker
+db.Orders.Add(newOrder);
+await outbox.WriteAsync(payload); // enlisted, not yet visible to the worker
 
 await db.SaveChangesAsync();
-await tx.CommitAsync();   // ahora el log queda disponible para despacho
-// tx.Rollback() -> el log tampoco se persiste
+await tx.CommitAsync();   // now the log becomes available for dispatch
+// tx.Rollback() -> the log is not persisted either
 ```
 
-Sin transacción activa, la escritura se persiste de inmediato. Un log duplicado (misma
-deduplication key) nunca rompe tu transacción de negocio: se deduplica antes de enlistarse.
+Without an active transaction, the write is persisted immediately. A duplicate log (same deduplication
+key) never breaks your business transaction: it is deduplicated before being enlisted.
