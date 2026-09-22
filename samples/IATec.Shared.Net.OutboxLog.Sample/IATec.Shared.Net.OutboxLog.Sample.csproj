@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>IATec.Shared.Net.OutboxLog.Sample</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Generic Host + console logging para la app de ejemplo -->
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Referencia a la libreria bajo prueba. En una app real esto seria un PackageReference al .nupkg. -->
+    <ProjectReference Include="..\..\src\IATec.Shared.Net.OutboxLog\IATec.Shared.Net.OutboxLog.csproj" />
+  </ItemGroup>
+
+</Project>

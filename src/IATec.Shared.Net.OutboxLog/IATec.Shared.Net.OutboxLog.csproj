@@ -1,0 +1,65 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      Single target net10.0. La libreria referencia IATec.Shared.HttpClient (netstandard2.1),
+      consumible desde net10.0. Un consumidor en un TFM anterior fallara el restore con NU1202.
+    -->
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- NuGet package metadata (Requirement 9.3) -->
+  <PropertyGroup>
+    <PackageId>IATec.Shared.Net.OutboxLog</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>IATec</Authors>
+    <Company>IATec</Company>
+    <Description>Reliable log delivery for .NET using the Outbox pattern. Integrates with Microsoft.Extensions.Logging as an ILoggerProvider, persists logs to a local outbox store (in-memory or SQL Server), and dispatches them asynchronously to a remote log bank with configurable retries and deduplication.</Description>
+    <PackageTags>logging;outbox;iloggerprovider;resilience;sqlserver</PackageTags>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <!--
+    Metadata validation (Requirement 9.5): fail packing when any required NuGet
+    metadata field is missing or malformed. Runs before the nuspec is generated so
+    the error surfaces during `dotnet pack` with a clear, field-specific message.
+  -->
+  <Target Name="ValidatePackageMetadata" BeforeTargets="GenerateNuspec">
+    <Error Condition="'$(PackageId)' == ''" Text="NuGet metadata validation failed: PackageId is empty. (Requirement 9.5)" />
+    <Error Condition="'$(Version)' == ''" Text="NuGet metadata validation failed: Version is empty. (Requirement 9.5)" />
+    <Error Condition="'$(Authors)' == ''" Text="NuGet metadata validation failed: Authors is empty; at least one author is required. (Requirement 9.5)" />
+    <Error Condition="'$(Description)' == ''" Text="NuGet metadata validation failed: Description is empty. (Requirement 9.5)" />
+    <Error Condition="'$(Version)' != '' and !$([System.Text.RegularExpressions.Regex]::IsMatch('$(Version)', '^\d+\.\d+\.\d+([-+].+)?$'))" Text="NuGet metadata validation failed: Version '$(Version)' is not in Major.Minor.Patch format. (Requirement 9.3)" />
+  </Target>
+
+  <!-- Expone los tipos internos al proyecto de tests para pruebas deterministas del worker. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="IATec.Shared.Net.OutboxLog.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Cliente HTTP compartido de IATec (netstandard2.1). -->
+    <PackageReference Include="IATec.Shared.HttpClient" Version="3.0.0" />
+
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.8" />
+    <!--
+      Solo el paquete base de EF Core (agnostico de proveedor). La aplicacion consumidora aporta
+      su propio provider relacional: Microsoft.EntityFrameworkCore.SqlServer,
+      Npgsql.EntityFrameworkCore.PostgreSQL, Pomelo.EntityFrameworkCore.MySql,
+      Microsoft.EntityFrameworkCore.Sqlite, etc.
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0" />
+  </ItemGroup>
+
+</Project>

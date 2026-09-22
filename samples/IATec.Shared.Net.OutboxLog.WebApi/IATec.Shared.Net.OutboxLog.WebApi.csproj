@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>IATec.Shared.Net.OutboxLog.WebApi</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- OpenAPI integrado de ASP.NET Core (endpoint /openapi/v1.json) -->
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+    <!--
+      El provider relacional lo aporta la aplicacion consumidora (la libreria es agnostica de
+      proveedor). Aqui usamos SQL Server; podria ser Npgsql/Pomelo/Sqlite segun la base destino.
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Referencia a la libreria. En una app real seria un PackageReference al .nupkg. -->
+    <ProjectReference Include="..\..\src\IATec.Shared.Net.OutboxLog\IATec.Shared.Net.OutboxLog.csproj" />
+  </ItemGroup>
+
+</Project>
