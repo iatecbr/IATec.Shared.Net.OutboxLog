@@ -5,7 +5,7 @@ VisualStudioVersion = 18.5.11709.299 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IATec.Shared.Net.OutboxLog", "src\IATec.Shared.Net.OutboxLog\IATec.Shared.Net.OutboxLog.csproj", "{2466F9BF-B8C7-4505-85FD-18ADF212BC92}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IATec.Shared.Net.OutboxLog", "src\IATec.Shared.Net.OutboxLog.csproj", "{2466F9BF-B8C7-4505-85FD-18ADF212BC92}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject

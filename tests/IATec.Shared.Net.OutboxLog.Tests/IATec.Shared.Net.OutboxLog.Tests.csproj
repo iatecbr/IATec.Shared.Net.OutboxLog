@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\IATec.Shared.Net.OutboxLog\IATec.Shared.Net.OutboxLog.csproj" />
+    <ProjectReference Include="..\..\src\IATec.Shared.Net.OutboxLog.csproj" />
   </ItemGroup>
 
 </Project>

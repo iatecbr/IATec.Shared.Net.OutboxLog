@@ -25,7 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\IATec.Shared.Net.OutboxLog\IATec.Shared.Net.OutboxLog.csproj" />
+    <ProjectReference Include="..\..\src\IATec.Shared.Net.OutboxLog.csproj" />
   </ItemGroup>
 
 </Project>

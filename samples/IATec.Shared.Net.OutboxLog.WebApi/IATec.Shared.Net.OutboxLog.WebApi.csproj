@@ -21,7 +21,7 @@
 
   <ItemGroup>
     <!-- Referencia a la libreria. En una app real seria un PackageReference al .nupkg. -->
-    <ProjectReference Include="..\..\src\IATec.Shared.Net.OutboxLog\IATec.Shared.Net.OutboxLog.csproj" />
+    <ProjectReference Include="..\..\src\IATec.Shared.Net.OutboxLog.csproj" />
   </ItemGroup>
 
 </Project>
