@@ -55,7 +55,6 @@ builder.Services.AddLogsOutbox(options =>
     options.StoreType       = OutboxStoreType.InMemory;
     options.LogBankEndpoint = "https://api-is-logs-dev.sdasystems.org/v1/log";
     options.ContainerKey    = "my-app";
-    options.Source          = "my-service";
 });
 
 var app = builder.Build();
@@ -110,7 +109,6 @@ builder.Services.AddLogsOutbox<AppDbContext>(options =>
     options.StoreType       = OutboxStoreType.Sql;
     options.LogBankEndpoint = "https://api-is-logs-dev.sdasystems.org/v1/log";
     options.ContainerKey    = "my-app";
-    options.Source          = "my-service";
 });
 ```
 
@@ -198,7 +196,7 @@ In either option:
 
 ## Ways to send logs
 
-There are three ways for a log to reach the Log Bank:
+There are four ways for a log to reach the Log Bank:
 
 ### 1. Via `ILogger` (automatic capture)
 
@@ -215,7 +213,55 @@ public class OrdersController(ILogger<OrdersController> logger)
 }
 ```
 
-### 2. Via `IOutboxStore` (explicit, resilient)
+### 2. Via `ILogDispatcher` (convenience wrapper, resilient)
+
+A thin, opinionated wrapper over `IOutboxStore` for when you just want to emit a log from
+primitive arguments without building a `LogPayload` by hand. It is **registered by default** by
+`AddLogsOutbox` (as `Scoped`), so you only need to inject it:
+
+```csharp
+using IATec.Shared.Net.OutboxLog;
+using IATec.Shared.Net.OutboxLog.Dispatch;
+
+public sealed class MyService(ILogDispatcher dispatcher)
+{
+    public async Task RegisterAsync(CancellationToken ct)
+    {
+        WriteResult result = await dispatcher.DispatchAsync(
+            source: "my-service",
+            owner:  "sales",
+            action: "create-order",
+            content: new { orderId = 123, total = 99.90m },
+            cancellationToken: ct);
+        // result.Outcome: Persisted | Deduplicated | Failed
+    }
+}
+```
+
+Signature and behavior:
+
+```csharp
+Task<WriteResult> DispatchAsync(
+    string? source,
+    string owner,
+    string action,
+    object? content = null,
+    CancellationToken cancellationToken = default);
+```
+
+- **`source`** — when null, empty, or whitespace, it falls back to the **entry assembly name** (and
+  to `"unknown"` if the entry assembly cannot be resolved).
+- **`owner`** / **`action`** — required; passing null, empty, or whitespace throws
+  `ArgumentException`.
+- **`content`** — `null` becomes an empty string, a `string` is used verbatim, any other object is
+  serialized to JSON.
+- **`containerKey`** and **`userId`** are filled from the global `LogsOutboxOptions` by the store, so
+  you don't set them here.
+
+Like `IOutboxStore`, in SQL mode the dispatcher is *scoped*: inject it inside a scope (a controller or
+scoped service).
+
+### 3. Via `IOutboxStore` (explicit, resilient)
 
 Persists the log in the outbox; the worker delivers it in the background with retries and deduplication:
 
@@ -242,7 +288,7 @@ public sealed class MyService(IOutboxStore outbox)
 }
 ```
 
-### 3. Via `ILogBankClient` (direct, immediate send)
+### 4. Via `ILogBankClient` (direct, immediate send)
 
 Performs the POST to the Log Bank right away, without persisting or retrying (the resilient client's
 circuit breaker still applies):
@@ -265,11 +311,12 @@ public sealed class MyService(ILogBankClient client)
 | You need... | Use |
 |---|---|
 | Transparent capture of all logging | **1 — `ILogger`** |
-| Not losing logs if the Log Bank goes down; retries; deduplication | **2 — `IOutboxStore`** |
-| Send now and know instantly whether the API accepted | **3 — `ILogBankClient`** |
+| Emit a log from simple arguments, resiliently, without building the payload | **2 — `ILogDispatcher`** |
+| Full control over the payload; retries; deduplication | **3 — `IOutboxStore`** |
+| Send now and know instantly whether the API accepted | **4 — `ILogBankClient`** |
 
-> In SQL mode, `IOutboxStore` is *scoped*: inject it inside a scope (a controller or a scoped
-> service). `ILogBankClient` has no such restriction.
+> In SQL mode, `ILogDispatcher` and `IOutboxStore` are *scoped*: inject them inside a scope (a
+> controller or a scoped service). `ILogBankClient` has no such restriction.
 
 ---
 
@@ -337,7 +384,7 @@ library applies sensible fallbacks:
 | Field | Priority |
 |---|---|
 | `containerKey` | scope `containerKey` → `options.ContainerKey` → `""` |
-| `source` | scope `source` → `options.Source` → logger category → `""` |
+| `source` | scope `source` → logger category → `""` |
 | `owner` | scope `owner` → **logger category** (the context class) → `""` |
 | `action` | scope `action` → `EventId.Name` → **log level** (`Information`, `Warning`, ...) → `""` |
 | `userId` | scope `userId` → **`options.UserIdProvider`** → `""` |
@@ -384,7 +431,6 @@ builder.Services.AddLogsOutbox<AppDbContext>(options =>
 | `HttpRetryCount` | `0` | 0–10 | Number of HTTP retries if `UseHttpRetry` |
 | `HttpRetryDelay` | `1s` | 0s–60s | Delay between HTTP retries |
 | `ContainerKey` | `null` | — | Static payload value |
-| `Source` | `null` | — | Static payload value |
 | `UserIdProvider` | `null` | — | Delegate to resolve `userId` |
 
 Notes:

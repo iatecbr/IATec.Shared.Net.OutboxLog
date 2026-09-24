@@ -31,7 +31,6 @@ builder.Logging.AddLogsOutbox(options =>
     options.LogBankEndpoint = "https://api-is-logs-dev.sdasystems.org/v1/log";
 
     options.ContainerKey  = "sample-app";
-    options.Source        = "sample-service";
     options.PollInterval  = TimeSpan.FromSeconds(2);
     options.BatchSize     = 50;
     options.RetryLimit    = 3;
@@ -51,7 +50,6 @@ builder.Logging.AddLogsOutbox(options =>
 //     options.StoreType      = OutboxStoreType.Sql;
 //     options.LogBankEndpoint = "https://api-is-logs-dev.sdasystems.org/v1/log";
 //     options.ContainerKey   = "sample-app";
-//     options.Source         = "sample-service";
 //     options.PollInterval   = TimeSpan.FromSeconds(2);
 // });
 // ------------------------------------------------------------------------------------------

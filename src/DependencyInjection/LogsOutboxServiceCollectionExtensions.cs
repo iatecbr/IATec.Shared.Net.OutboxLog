@@ -212,6 +212,11 @@ public static class LogsOutboxServiceCollectionExtensions
         // can resolve request-scoped services (e.g. IHttpContextAccessor) for the userId fallback.
         services.TryAddSingleton(sp => new LogPayloadFactory(sp));
 
+        // Convenience dispatcher over IOutboxStore. Scoped so it is compatible with both the
+        // singleton in-memory store and the scoped SQL store (which needs the consumer's scoped
+        // DbContext for transactional writes).
+        services.TryAddScoped<ILogDispatcher, LogDispatcher>();
+
         RegisterLogBankClient(services, options);
     }
 

@@ -29,6 +29,8 @@ namespace IATec.Shared.Net.OutboxLog.IntegrationTests;
 [Collection(SqlServerCollection.Name)]
 public sealed class EndToEndTests
 {
+    private const string LoggerCategory = "IATec.Shared.Net.OutboxLog.IntegrationTests.EndToEnd";
+
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(30);
 
@@ -88,7 +90,6 @@ public sealed class EndToEndTests
                     options.BatchSize = 100;
                     options.RetryLimit = 3;
                     options.ContainerKey = "e2e-container";
-                    options.Source = "e2e-source";
                     // Este test valida la captura por ILogger de extremo a extremo (opt-in).
                     options.EnableLoggerProvider = true;
                 });
@@ -108,7 +109,7 @@ public sealed class EndToEndTests
         {
             // --- Capture: emit the events through an ILogger from the resolved provider. ---
             using var factory = new LoggerFactory(providers);
-            ILogger logger = factory.CreateLogger("IATec.Shared.Net.OutboxLog.IntegrationTests.EndToEnd");
+            ILogger logger = factory.CreateLogger(LoggerCategory);
 
             logger.LogInformation("{Message}", messages[0]);
             logger.LogWarning("{Message}", messages[1]);
@@ -157,15 +158,15 @@ public sealed class EndToEndTests
 
     /// <summary>
     /// Recomputes the deduplication key the library would assign to the persisted entry for a given
-    /// log message, matching the payload the <c>LogPayloadFactory</c> builds (container/source from
-    /// options, owner/action/userId empty, content = the formatted message).
+    /// log message, matching the payload the <c>LogPayloadFactory</c> builds. With no <c>source</c>
+    /// scope and no <c>options.Source</c>, <c>source</c> falls back to the logger category.
     /// </summary>
     private static string BuildExpectedDedupKey(string message)
     {
         var payload = new LogPayload
         {
             ContainerKey = "e2e-container",
-            Source = "e2e-source",
+            Source = LoggerCategory,
             Owner = "",
             Action = "",
             UserId = "",

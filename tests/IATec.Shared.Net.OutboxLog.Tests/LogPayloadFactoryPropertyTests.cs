@@ -107,7 +107,6 @@ public class LogPayloadFactoryPropertyTests
                 var options = new LogsOutboxOptions
                 {
                     ContainerKey = null,
-                    Source = null,
                 };
 
                 LogPayload payload = factory.Create(
@@ -166,7 +165,6 @@ public class LogPayloadFactoryPropertyTests
                 var options = new LogsOutboxOptions
                 {
                     ContainerKey = null,
-                    Source = null,
                     // The provider ignores the service provider here and returns a fixed user id.
                     UserIdProvider = _ => userId,
                 };

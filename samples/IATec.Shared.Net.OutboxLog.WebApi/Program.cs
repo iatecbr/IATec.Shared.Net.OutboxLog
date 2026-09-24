@@ -21,7 +21,6 @@ var builder = WebApplication.CreateBuilder(args);
 //    options.StoreType = OutboxStoreType.InMemory;
 //    options.LogBankEndpoint = "https://api-is-logs-dev.sdasystems.org/v1/log";
 //    options.ContainerKey = "log-dispatcher-app";        // se aplica a cada log si no viene por scope
-//    options.Source = "memory";
 //    options.PollInterval = TimeSpan.FromSeconds(5);
 //    options.RetryLimit = 3;
 //    options.UserIdProvider = sp =>

@@ -70,7 +70,7 @@ public sealed class LogPayloadFactory
                 (object?)null);
 
             var containerKey = FirstNonEmpty(scopeContainerKey, options?.ContainerKey);
-            var source = FirstNonEmpty(scopeSource, options?.Source, category);
+            var source = FirstNonEmpty(scopeSource, category);
 
             // Fallbacks when no scope value is supplied (so the remote log bank, which requires
             // these fields, never receives an empty owner/action/userId):
@@ -99,7 +99,7 @@ public sealed class LogPayloadFactory
             return new LogPayload
             {
                 ContainerKey = FirstNonEmpty(options?.ContainerKey),
-                Source = FirstNonEmpty(options?.Source, category),
+                Source = FirstNonEmpty(category),
                 Owner = FirstNonEmpty(category),
                 Action = FirstNonEmpty(eventId.Name, level.ToString()),
             };

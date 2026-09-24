@@ -55,7 +55,6 @@ builder.Services.AddLogsOutbox(options =>
     options.StoreType       = OutboxStoreType.InMemory;
     options.LogBankEndpoint = "https://api-is-logs-dev.sdasystems.org/v1/log";
     options.ContainerKey    = "mi-app";
-    options.Source          = "mi-servicio";
 });
 
 var app = builder.Build();
@@ -110,7 +109,6 @@ builder.Services.AddLogsOutbox<AppDbContext>(options =>
     options.StoreType       = OutboxStoreType.Sql;
     options.LogBankEndpoint = "https://api-is-logs-dev.sdasystems.org/v1/log";
     options.ContainerKey    = "mi-app";
-    options.Source          = "mi-servicio";
 });
 ```
 
@@ -337,7 +335,7 @@ aplica fallbacks con sentido:
 | Campo | Prioridad |
 |---|---|
 | `containerKey` | scope `containerKey` → `options.ContainerKey` → `""` |
-| `source` | scope `source` → `options.Source` → categoría del logger → `""` |
+| `source` | scope `source` → categoría del logger → `""` |
 | `owner` | scope `owner` → **categoría del logger** (la clase de contexto) → `""` |
 | `action` | scope `action` → `EventId.Name` → **nivel de log** (`Information`, `Warning`, ...) → `""` |
 | `userId` | scope `userId` → **`options.UserIdProvider`** → `""` |
@@ -384,7 +382,6 @@ builder.Services.AddLogsOutbox<AppDbContext>(options =>
 | `HttpRetryCount` | `0` | 0–10 | Nº de reintentos HTTP si `UseHttpRetry` |
 | `HttpRetryDelay` | `1s` | 0s–60s | Retardo entre reintentos HTTP |
 | `ContainerKey` | `null` | — | Valor estático del payload |
-| `Source` | `null` | — | Valor estático del payload |
 | `UserIdProvider` | `null` | — | Delegado para resolver `userId` |
 
 Notas:

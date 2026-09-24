@@ -75,9 +75,6 @@ public sealed class LogsOutboxOptions
     /// <summary>Static container key used to populate the payload when not supplied per-log.</summary>
     public string? ContainerKey { get; set; }
 
-    /// <summary>Static source used to populate the payload when not supplied per-log.</summary>
-    public string? Source { get; set; }
-
     /// <summary>
     /// Optional provider that resolves the current user id for the payload's <c>userId</c> field
     /// when no <c>userId</c> scope value is supplied. Receives the application's
