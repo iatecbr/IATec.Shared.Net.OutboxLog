@@ -19,7 +19,7 @@
     <Version>0.1.0</Version>
     <Authors>IATec</Authors>
     <Company>IATec</Company>
-    <Description>Reliable log delivery for .NET using the Outbox pattern. Integrates with Microsoft.Extensions.Logging as an ILoggerProvider, persists logs to a local outbox store (in-memory or SQL Server), and dispatches them asynchronously to a remote log bank with configurable retries and deduplication.</Description>
+    <Description>Reliable Audit log delivery for .NET using the Outbox pattern.	Persists logs to a local outbox store (in-memory or SQL Server), and dispatches them asynchronously to a remote log bank with configurable retries and deduplication. Optionally integrates with Microsoft.Extensions.Logging as an ILoggerProvider.</Description>
     <PackageTags>logging;outbox;iloggerprovider;resilience;sqlserver</PackageTags>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <IncludeSymbols>true</IncludeSymbols>
