@@ -213,7 +213,7 @@ public class OrdersController(ILogger<OrdersController> logger)
 }
 ```
 
-### 2. Via `ILogDispatcher` (convenience wrapper, resilient)
+### 2. Via `IOutboxLogDispatcher` (convenience wrapper, resilient)
 
 A thin, opinionated wrapper over `IOutboxStore` for when you just want to emit a log from
 primitive arguments without building a `LogPayload` by hand. It is **registered by default** by
@@ -223,7 +223,7 @@ primitive arguments without building a `LogPayload` by hand. It is **registered 
 using IATec.Shared.Net.OutboxLog;
 using IATec.Shared.Net.OutboxLog.Dispatch;
 
-public sealed class MyService(ILogDispatcher dispatcher)
+public sealed class MyService(IOutboxLogDispatcher dispatcher)
 {
     public async Task RegisterAsync(CancellationToken ct)
     {
@@ -311,11 +311,11 @@ public sealed class MyService(ILogBankClient client)
 | You need... | Use |
 |---|---|
 | Transparent capture of all logging | **1 — `ILogger`** |
-| Emit a log from simple arguments, resiliently, without building the payload | **2 — `ILogDispatcher`** |
+| Emit a log from simple arguments, resiliently, without building the payload | **2 — `IOutboxLogDispatcher`** |
 | Full control over the payload; retries; deduplication | **3 — `IOutboxStore`** |
 | Send now and know instantly whether the API accepted | **4 — `ILogBankClient`** |
 
-> In SQL mode, `ILogDispatcher` and `IOutboxStore` are *scoped*: inject them inside a scope (a
+> In SQL mode, `IOutboxLogDispatcher` and `IOutboxStore` are *scoped*: inject them inside a scope (a
 > controller or a scoped service). `ILogBankClient` has no such restriction.
 
 ---

@@ -12,7 +12,7 @@ namespace IATec.Shared.Net.OutboxLog.Dispatch;
 /// <c>DbContext</c> for transactional writes). <c>containerKey</c> and <c>userId</c> are filled from
 /// the global <c>LogsOutboxOptions</c> by the store, so callers do not need to supply them here.
 /// </remarks>
-public interface ILogDispatcher
+public interface IOutboxLogDispatcher
 {
     /// <summary>
     /// Builds a payload and persists it to the outbox for asynchronous delivery to the Log Bank.
